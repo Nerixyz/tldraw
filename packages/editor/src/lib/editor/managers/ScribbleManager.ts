@@ -56,7 +56,7 @@ export class ScribbleManager {
 	stop = (id: ScribbleItem['id']) => {
 		const item = this.scribbleItems.get(id)
 		if (!item) throw Error(`Scribble with id ${id} not found`)
-		item.delayRemaining = Math.min(item.delayRemaining, 200)
+		item.delayRemaining = Math.max(item.delayRemaining, 1200) // TODO: this is wrong, but we do want some delay
 		item.scribble.state = 'stopping'
 		return item
 	}
@@ -76,6 +76,23 @@ export class ScribbleManager {
 			item.next = point
 		}
 		return item
+	}
+
+	restoreScribbles = (ids: ScribbleItem['id'][], state: Partial<TLScribble>) => {
+		const restored = []
+		for (const id of ids) {
+			const item = this.scribbleItems.get(id)
+			if (!item) continue
+			restored.push(id)
+			item.scribble = {
+				...item.scribble,
+				...state,
+				state: 'paused',
+			}
+			item.timeoutMs = 0
+			item.delayRemaining = state.delay ?? 0
+		}
+		return restored
 	}
 
 	/**
@@ -123,14 +140,14 @@ export class ScribbleManager {
 							// If we've run out of delay, then shrink the scribble from the start
 							if (delayRemaining === 0) {
 								if (scribble.points.length > 8) {
-									scribble.points.shift()
+									// scribble.points.shift()
 								}
 							}
 						} else {
 							// While not moving, shrink the scribble from the start
 							if (timeoutMs === 0) {
 								if (scribble.points.length > 1) {
-									scribble.points.shift()
+									// scribble.points.shift()
 								} else {
 									// Reset the item's delay
 									item.delayRemaining = scribble.delay
@@ -169,12 +186,10 @@ export class ScribbleManager {
 			// The object here will get frozen into the record, so we need to
 			// create a copies of the parts that what we'll be mutating later.
 			this.editor.updateInstanceState({
-				scribbles: Array.from(this.scribbleItems.values())
-					.map(({ scribble }) => ({
-						...scribble,
-						points: [...scribble.points],
-					}))
-					.slice(-5), // limit to three as a minor sanity check
+				scribbles: Array.from(this.scribbleItems.values()).map(({ scribble }) => ({
+					...scribble,
+					points: [...scribble.points],
+				})),
 			})
 		})
 	}

@@ -4,22 +4,30 @@ export class Lasering extends StateNode {
 	static override id = 'lasering'
 
 	scribbleId = 'id'
+	pastScribbles: string[] = []
 
-	override onEnter = () => {
-		const scribble = this.editor.scribbles.addScribble({
+	override onEnter = ({ scribbles }: { scribbles: string[] }) => {
+		const startState = {
 			color: 'laser',
 			opacity: 0.7,
 			size: 4,
 			delay: 1200,
 			shrink: 0.05,
 			taper: true,
-		})
+		} as const
+
+		this.pastScribbles = this.editor.scribbles.restoreScribbles(scribbles, startState)
+
+		const scribble = this.editor.scribbles.addScribble(startState)
 		this.scribbleId = scribble.id
 		this.pushPointToScribble()
 	}
 
 	override onExit = () => {
 		this.editor.scribbles.stop(this.scribbleId)
+		for (const id of this.pastScribbles) {
+			this.editor.scribbles.stop(id)
+		}
 	}
 
 	override onPointerMove = () => {
@@ -44,7 +52,7 @@ export class Lasering extends StateNode {
 	}
 
 	private complete() {
-		this.parent.transition('idle')
+		this.parent.transition('pending', { scribbles: [...this.pastScribbles, this.scribbleId] })
 	}
 
 	private cancel() {
